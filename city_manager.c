@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
-
+#include <sys/stat.h>   
+#include <fcntl.h>
+#include <unistd.h>
 typedef struct {
     int id;
     char inspector_name[50];
@@ -100,10 +102,43 @@ void print_usage(Usage u) {
     }
 }
 
+void create_dir_if_not_exists(char *dir_name) { 
+    struct stat st;
+    if (stat(dir_name, &st) == 0 && S_ISDIR(st.st_mode)) { // found directory
+        return;
+    }
+
+    mkdir(dir_name, 0750);
+}
+
+void create_file_in_directory(char *dir_name, char* file_name, int permissions) {
+    char file_path[100];
+    snprintf(file_path, sizeof(file_path), "%s/%s", dir_name, file_name);
+    
+    int fd = open(file_path, O_CREAT | O_WRONLY | O_TRUNC, permissions);
+    close(fd);
+}
+
+void handle_action(Usage usage) {
+    create_dir_if_not_exists(usage.district);
+    create_file_in_directory(usage.district, "reports.dat", 0664);
+    create_file_in_directory(usage.district, "district.cfg", 0640);
+    create_file_in_directory(usage.district, "logged_district", 0644);
+
+    switch (usage.operation) {
+        case ADD:
+            break;
+        default:
+            printf("Unknown operation\n");
+            break;
+    }
+}
+
 int main(int argc, char *argv[]) {
 
     Usage usage = parse_command_line_arguments(argc, argv);
     print_usage(usage);
+    handle_action(usage);
 
     return 0;
 }
