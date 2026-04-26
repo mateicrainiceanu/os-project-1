@@ -5,6 +5,7 @@
 #include <sys/stat.h>   
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdbool.h>
 typedef struct {
     int id;
     char inspector_name[50];
@@ -111,25 +112,60 @@ void create_dir_if_not_exists(char *dir_name) {
     mkdir(dir_name, 0750);
 }
 
-void create_file_in_directory(char *dir_name, char* file_name, int permissions) {
+bool create_file_in_directory(const char* dir_name, const char* file_name, int permissions) {
+
     char file_path[100];
     snprintf(file_path, sizeof(file_path), "%s/%s", dir_name, file_name);
-    
-    int fd = open(file_path, O_CREAT | O_WRONLY | O_TRUNC, permissions);
+
+    int fd = open(file_path, O_CREAT | O_EXCL | O_WRONLY, permissions);
+
+    if (fd == -1) {  // a file already exists
+        return false;
+    }
+
     close(fd);
+    return true;
+}
+
+void update_threshold_in_config(char *distrct_name, int new_threshold) {
+    char config_path[100];
+    snprintf(config_path, sizeof(config_path), "%s/district.cfg", distrct_name);
+    
+    FILE *config_file = fopen(config_path, "w");
+    if(config_file == NULL) {
+        printf("Failed to open config file");
+        return;
+    }
+
+    fprintf(config_file, "escalation_threshold=%d\n", new_threshold);
+    
+    fclose(config_file);
 }
 
 void handle_action(Usage usage) {
+    // creating district and files if not exists
     create_dir_if_not_exists(usage.district);
     create_file_in_directory(usage.district, "reports.dat", 0664);
-    create_file_in_directory(usage.district, "district.cfg", 0640);
+    
+    bool created = create_file_in_directory(usage.district, "district.cfg", 0640);
+    if (created) { update_threshold_in_config(usage.district, 2);}
+    
     create_file_in_directory(usage.district, "logged_district", 0644);
+    // END - creating district and files if not exists
+
+    
 
     switch (usage.operation) {
         case ADD:
             break;
+        case LIST:
+            break;
+        case REMOVE:
+            break;
+        case FILTER:
+            break;
         default:
-            printf("Unknown operation\n");
+            printf("Unimplemented operation in switch statement - handleAction\n");
             break;
     }
 }
