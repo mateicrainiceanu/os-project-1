@@ -142,6 +142,42 @@ void update_threshold_in_config(char *distrct_name, int new_threshold) {
     fclose(config_file);
 }
 
+void save_report_to_file(char *district, Report report) {
+    char file_path[100];
+    snprintf(file_path, sizeof(file_path), "%s/reports.dat", district);
+    
+    int fd = open(file_path, O_RDWR, 0644);
+    if (fd == -1) {
+        printf("Failed to open file for writing: %s\n", file_path);
+        exit(-1);
+    }
+
+    Report last_report;
+    
+    lseek(fd, -sizeof(Report), SEEK_END);
+
+    if (read(fd, &last_report, sizeof(Report)) == sizeof(Report)) {
+        report.id = last_report.id + 1;
+    } else {
+        report.id = 1;
+    }
+
+    lseek(fd, 0, SEEK_END);
+    
+    write(fd, &report, sizeof(Report));
+
+    close(fd);
+}
+
+void handle_add_report(Usage usage) {
+    Report report = read_report_data_from_stdin();
+
+    report.id = 1; // TODO: generate unique id based on last index in file;
+    strcpy(report.inspector_name, usage.inspector_name);
+
+    save_report_to_file(usage.district, report);
+}
+
 void handle_action(Usage usage) {
     // creating district and files if not exists
     create_dir_if_not_exists(usage.district);
@@ -154,9 +190,9 @@ void handle_action(Usage usage) {
     // END - creating district and files if not exists
 
     
-
     switch (usage.operation) {
         case ADD:
+            handle_add_report(usage);
             break;
         case LIST:
             break;
