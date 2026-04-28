@@ -38,6 +38,8 @@ typedef struct {
     char inspector_name[50];
     char district[50];
     OperationType operation;
+    int report_id; // used for view and remove operations
+    int value; // used for threshold updates in filter operation
 } Usage;
 
 // END: Data structures
@@ -64,10 +66,12 @@ Usage parse_command_line_arguments(int argc, char* argv[]) {
         usage.operation = LIST;
     } else if (strcmp(argv[5], "--remove_report") == 0) {
         usage.operation = REMOVE;
+        usage.report_id = atoi(argv[7]); // expecting report ID as an additional argument for view operation
     } else if (strcmp(argv[5], "--filter") == 0) {
         usage.operation = FILTER;
     } else if (strcmp(argv[5], "--view") == 0) {
         usage.operation = VIEW;
+        usage.report_id = atoi(argv[7]); // expecting report ID as an additional argument for view operation
     } else {
         printf("Invalid operation: %s\n", argv[5]);
         exit(EXIT_FAILURE);
@@ -258,6 +262,34 @@ void list_reports_for_district(char* district) {
     close(fd);
 }
 
+void view_report_by_id(char* district, int report_id) {
+    char file_path[100];
+    snprintf(file_path, sizeof(file_path), "%s/reports.dat", district);
+
+    int fd = open(file_path, O_RDONLY);
+    if (fd == -1) {
+        printf("Failed to open file for reading: %s\n", file_path);
+        exit(-1);
+    }
+
+    Report report;
+    bool found = false;
+    while (read(fd, &report, sizeof(Report)) == sizeof(Report)) {
+        if (report.id == report_id) {
+            print_report_full(report);
+            found = true;
+            break;
+        }
+    }
+
+    if (!found) {
+        printf("Report with ID %d not found in district %s.\n", report_id,
+               district);
+    }
+
+    close(fd);
+}
+
 // END: File operations for reports and configuration
 
 
@@ -274,6 +306,10 @@ void handle_add_report(Usage usage) {
 
 void handle_list_reports(Usage usage) {
     list_reports_for_district(usage.district);
+}
+
+void handle_view_report(Usage usage) {
+    view_report_by_id(usage.district, usage.report_id);
 }
 
 // END: Logic handlers for different operations
@@ -306,6 +342,7 @@ void handle_action(Usage usage) {
         case FILTER:
             break;
         case VIEW:
+            handle_view_report(usage);
             break;
         default:
             printf(
