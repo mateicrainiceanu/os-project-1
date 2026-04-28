@@ -31,7 +31,7 @@ typedef struct {
     char inspector_name[50];
 } OperationLogEntry;
 
-typedef enum { ADD, LIST, REMOVE, FILTER } OperationType;
+typedef enum { ADD, LIST, REMOVE, FILTER, VIEW } OperationType;
 
 typedef struct {
     char role[50];
@@ -66,6 +66,8 @@ Usage parse_command_line_arguments(int argc, char* argv[]) {
         usage.operation = REMOVE;
     } else if (strcmp(argv[5], "--filter") == 0) {
         usage.operation = FILTER;
+    } else if (strcmp(argv[5], "--view") == 0) {
+        usage.operation = VIEW;
     } else {
         printf("Invalid operation: %s\n", argv[5]);
         exit(EXIT_FAILURE);
@@ -84,6 +86,9 @@ void print_usage(Usage u) {
             break;
         case LIST:
             printf("List Reports\n");
+            break;
+        case VIEW:
+            printf("View Report\n");
             break;
         case REMOVE:
             printf("Remove Report\n");
@@ -123,7 +128,48 @@ bool create_file_in_directory(const char* dir_name,
     return true;
 }
 
+void print_file_permissions(char *file_path) {
+    struct stat st;
+    if (lstat(file_path, &st) == -1) {
+        printf("Failed to get file permissions: %s\n", file_path);
+        return;
+    }
+    
+    printf("Permissions for %s: ", file_path);
+    printf((st.st_mode & S_IRUSR) ? "r" : "-");
+    printf((st.st_mode & S_IWUSR) ? "w" : "-");
+    printf((st.st_mode & S_IXUSR) ? "x" : "-");
+    printf((st.st_mode & S_IRGRP) ? "r" : "-");
+    printf((st.st_mode & S_IWGRP) ? "w" : "-");
+    printf((st.st_mode & S_IXGRP) ? "x" : "-");
+    printf((st.st_mode & S_IROTH) ? "r" : "-");
+    printf((st.st_mode & S_IWOTH) ? "w" : "-");
+    printf((st.st_mode & S_IXOTH) ? "x" : "-");
+    printf("\n");
+}
+
 // END: File and directory management functions
+
+// Functions
+
+void print_report_full(Report report) {
+    printf("ID: %d\n", report.id);
+    printf("Inspector: %s\n", report.inspector_name);
+    printf("Location: (%f, %f)\n", report.latitude, report.longitude);
+    printf("Category: %s\n", report.issue_category);
+    printf("Severity: %d\n", report.severity_level);
+    printf("Description: %s\n", report.description);
+    printf("Timestamp: %s\n", ctime(&report.timestamp));
+}
+
+void print_report_summary(Report report) {
+    printf("ID: %d | Inspector: %s | Location: (%f, %f) | Category: %s | "
+           "Severity: %d\n",
+           report.id, report.inspector_name, report.latitude, report.longitude,
+           report.issue_category, report.severity_level);
+}
+
+// END: Functions
 
 // File operations for reports and configuration
 
@@ -202,16 +248,11 @@ void list_reports_for_district(char* district) {
         exit(-1);
     }
 
+    print_file_permissions(file_path);
+
     Report report;
     while (read(fd, &report, sizeof(Report)) == sizeof(Report)) {
-        printf("ID: %d\n", report.id);
-        printf("Inspector: %s\n", report.inspector_name);
-        printf("Location: (%f, %f)\n", report.latitude, report.longitude);
-        printf("Category: %s\n", report.issue_category);
-        printf("Severity: %d\n", report.severity_level);
-        printf("Description: %s\n", report.description);
-        printf("Timestamp: %s\n", ctime(&report.timestamp));
-        printf("-----------------------------\n");
+        print_report_summary(report);
     }
 
     close(fd);
@@ -263,6 +304,8 @@ void handle_action(Usage usage) {
         case REMOVE:
             break;
         case FILTER:
+            break;
+        case VIEW:
             break;
         default:
             printf(
