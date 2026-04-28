@@ -31,7 +31,7 @@ typedef struct {
     char inspector_name[50];
 } OperationLogEntry;
 
-typedef enum { ADD, LIST, REMOVE, FILTER, VIEW } OperationType;
+typedef enum { ADD, LIST, REMOVE, FILTER, VIEW, UPDATE_THRESHOLD } OperationType;
 
 typedef struct {
     char role[50];
@@ -39,7 +39,7 @@ typedef struct {
     char district[50];
     OperationType operation;
     int report_id; // used for view and remove operations
-    int value; // used for threshold updates in filter operation
+    int value; // used for threshold updates operation
 } Usage;
 
 // END: Data structures
@@ -66,12 +66,15 @@ Usage parse_command_line_arguments(int argc, char* argv[]) {
         usage.operation = LIST;
     } else if (strcmp(argv[5], "--remove_report") == 0) {
         usage.operation = REMOVE;
-        usage.report_id = atoi(argv[7]); // expecting report ID as an additional argument for view operation
+        usage.report_id = atoi(argv[7]);
     } else if (strcmp(argv[5], "--filter") == 0) {
         usage.operation = FILTER;
     } else if (strcmp(argv[5], "--view") == 0) {
         usage.operation = VIEW;
-        usage.report_id = atoi(argv[7]); // expecting report ID as an additional argument for view operation
+        usage.report_id = atoi(argv[7]); 
+    } else if (strcmp(argv[5], "--update-threshold") == 0) {
+        usage.operation = UPDATE_THRESHOLD;
+        usage.value = atoi(argv[7]);
     } else {
         printf("Invalid operation: %s\n", argv[5]);
         exit(EXIT_FAILURE);
@@ -93,6 +96,10 @@ void print_usage(Usage u) {
             break;
         case VIEW:
             printf("View Report\n");
+            break;
+        case UPDATE_THRESHOLD:
+            printf("Update Threshold\n");
+            printf("New Threshold Value: %d\n", u.value);
             break;
         case REMOVE:
             printf("Remove Report\n");
@@ -185,6 +192,17 @@ void update_threshold_in_config(char* distrct_name, int new_threshold) {
     if (config_file == NULL) {
         printf("Failed to open config file");
         return;
+    }
+
+    struct stat st;
+    if (stat(config_path, &st) == -1) {
+        printf("Failed to get file permissions: %s\n", config_path);
+    } else {
+       // verify that the permissions are 0640
+        if ((st.st_mode & 0777) != 0640) {
+            printf("Warning: Config file permissions are not 0640\n");
+            return;
+        } 
     }
 
     fprintf(config_file, "escalation_threshold=%d\n", new_threshold);
@@ -312,6 +330,10 @@ void handle_view_report(Usage usage) {
     view_report_by_id(usage.district, usage.report_id);
 }
 
+void handle_threshold_update(Usage usage) {
+    update_threshold_in_config(usage.district, usage.value);
+}
+
 // END: Logic handlers for different operations
 
 // Main action handler
@@ -343,6 +365,9 @@ void handle_action(Usage usage) {
             break;
         case VIEW:
             handle_view_report(usage);
+            break;
+        case UPDATE_THRESHOLD:
+            handle_threshold_update(usage);
             break;
         default:
             printf(
