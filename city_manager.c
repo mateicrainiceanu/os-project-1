@@ -1,11 +1,11 @@
+#include <fcntl.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <string.h>
-#include <sys/stat.h>   
-#include <fcntl.h>
+#include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
-#include <stdbool.h>
 typedef struct {
     int id;
     char inspector_name[50];
@@ -43,7 +43,7 @@ Report read_report_data_from_stdin() {
     scanf("%d", &report.severity_level);
     printf("Description: ");
     scanf("%s", report.description);
-    report.timestamp = time(NULL); // current time
+    report.timestamp = time(NULL);  // current time
     return report;
 }
 
@@ -56,17 +56,20 @@ typedef struct {
     OperationType operation;
 } Usage;
 
-Usage parse_command_line_arguments(int argc, char *argv[]) {
+Usage parse_command_line_arguments(int argc, char* argv[]) {
     Usage usage;
     if (argc < 5) {
-        printf("Usage: %s --role <role> --user <inspector_name> --[operation] <district>\n", argv[0]);
+        printf(
+            "Usage: %s --role <role> --user <inspector_name> --[operation] "
+            "<district>\n",
+            argv[0]);
         exit(EXIT_FAILURE);
     }
 
     strncpy(usage.role, argv[2], sizeof(usage.role) - 1);
     strncpy(usage.inspector_name, argv[4], sizeof(usage.inspector_name) - 1);
     strncpy(usage.district, argv[6], sizeof(usage.district) - 1);
-    
+
     if (strcmp(argv[5], "--add") == 0) {
         usage.operation = ADD;
     } else if (strcmp(argv[5], "--list") == 0) {
@@ -103,17 +106,18 @@ void print_usage(Usage u) {
     }
 }
 
-void create_dir_if_not_exists(char *dir_name) { 
+void create_dir_if_not_exists(char* dir_name) {
     struct stat st;
-    if (stat(dir_name, &st) == 0 && S_ISDIR(st.st_mode)) { // found directory
+    if (stat(dir_name, &st) == 0 && S_ISDIR(st.st_mode)) {  // found directory
         return;
     }
 
     mkdir(dir_name, 0750);
 }
 
-bool create_file_in_directory(const char* dir_name, const char* file_name, int permissions) {
-
+bool create_file_in_directory(const char* dir_name,
+                              const char* file_name,
+                              int permissions) {
     char file_path[100];
     snprintf(file_path, sizeof(file_path), "%s/%s", dir_name, file_name);
 
@@ -127,25 +131,25 @@ bool create_file_in_directory(const char* dir_name, const char* file_name, int p
     return true;
 }
 
-void update_threshold_in_config(char *distrct_name, int new_threshold) {
+void update_threshold_in_config(char* distrct_name, int new_threshold) {
     char config_path[100];
     snprintf(config_path, sizeof(config_path), "%s/district.cfg", distrct_name);
-    
-    FILE *config_file = fopen(config_path, "w");
-    if(config_file == NULL) {
+
+    FILE* config_file = fopen(config_path, "w");
+    if (config_file == NULL) {
         printf("Failed to open config file");
         return;
     }
 
     fprintf(config_file, "escalation_threshold=%d\n", new_threshold);
-    
+
     fclose(config_file);
 }
 
-void save_report_to_file(char *district, Report report) {
+void save_report_to_file(char* district, Report report) {
     char file_path[100];
     snprintf(file_path, sizeof(file_path), "%s/reports.dat", district);
-    
+
     int fd = open(file_path, O_RDWR, 0644);
     if (fd == -1) {
         printf("Failed to open file for writing: %s\n", file_path);
@@ -153,17 +157,21 @@ void save_report_to_file(char *district, Report report) {
     }
 
     Report last_report;
-    
-    lseek(fd, -sizeof(Report), SEEK_END);
 
-    if (read(fd, &last_report, sizeof(Report)) == sizeof(Report)) {
-        report.id = last_report.id + 1;
-    } else {
+    if (lseek(fd, 0, SEEK_END) == 0) {  // file is empty
         report.id = 1;
+    } else {
+        lseek(fd, -sizeof(Report), SEEK_END);
+
+        if (read(fd, &last_report, sizeof(Report)) == sizeof(Report)) {
+            report.id = last_report.id + 1;
+        } else {
+            report.id = 1;
+        }
     }
 
     lseek(fd, 0, SEEK_END);
-    
+
     write(fd, &report, sizeof(Report));
 
     close(fd);
@@ -172,7 +180,7 @@ void save_report_to_file(char *district, Report report) {
 void handle_add_report(Usage usage) {
     Report report = read_report_data_from_stdin();
 
-    report.id = 1; // TODO: generate unique id based on last index in file;
+    report.id = 1;  // TODO: generate unique id based on last index in file;
     strcpy(report.inspector_name, usage.inspector_name);
 
     save_report_to_file(usage.district, report);
@@ -182,14 +190,16 @@ void handle_action(Usage usage) {
     // creating district and files if not exists
     create_dir_if_not_exists(usage.district);
     create_file_in_directory(usage.district, "reports.dat", 0664);
-    
-    bool created = create_file_in_directory(usage.district, "district.cfg", 0640);
-    if (created) { update_threshold_in_config(usage.district, 2);}
-    
+
+    bool created =
+        create_file_in_directory(usage.district, "district.cfg", 0640);
+    if (created) {
+        update_threshold_in_config(usage.district, 2);
+    }
+
     create_file_in_directory(usage.district, "logged_district", 0644);
     // END - creating district and files if not exists
 
-    
     switch (usage.operation) {
         case ADD:
             handle_add_report(usage);
@@ -201,13 +211,13 @@ void handle_action(Usage usage) {
         case FILTER:
             break;
         default:
-            printf("Unimplemented operation in switch statement - handleAction\n");
+            printf(
+                "Unimplemented operation in switch statement - handleAction\n");
             break;
     }
 }
 
-int main(int argc, char *argv[]) {
-
+int main(int argc, char* argv[]) {
     Usage usage = parse_command_line_arguments(argc, argv);
     print_usage(usage);
     handle_action(usage);
