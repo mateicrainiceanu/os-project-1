@@ -6,6 +6,8 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+
+// Data structures
 typedef struct {
     int id;
     char inspector_name[50];
@@ -29,25 +31,6 @@ typedef struct {
     char inspector_name[50];
 } OperationLogEntry;
 
-Report read_report_data_from_stdin() {
-    /* Returns a report without id and inspector data */
-    Report report;
-    printf("Enter report details:\n");
-    printf("Latitude (X): ");
-    scanf("%f", &report.latitude);
-    printf("Longitude (Y): ");
-    scanf("%f", &report.longitude);
-    printf("Issue Category (road/lightning/flooding/other): ");
-    scanf("%s", report.issue_category);
-    printf("Severity Level (1-3): ");
-    scanf("%d", &report.severity_level);
-    printf("Description: ");
-    scanf(" ");
-    fgets(report.description, sizeof(report.description), stdin);
-    report.timestamp = time(NULL);  // current time
-    return report;
-}
-
 typedef enum { ADD, LIST, REMOVE, FILTER } OperationType;
 
 typedef struct {
@@ -56,6 +39,10 @@ typedef struct {
     char district[50];
     OperationType operation;
 } Usage;
+
+// END: Data structures
+
+// Command line argument parsing and utility functions
 
 Usage parse_command_line_arguments(int argc, char* argv[]) {
     Usage usage;
@@ -107,6 +94,10 @@ void print_usage(Usage u) {
     }
 }
 
+// END: Command line argument parsing and utility functions
+
+// File and directory management functions
+
 void create_dir_if_not_exists(char* dir_name) {
     struct stat st;
     if (stat(dir_name, &st) == 0 && S_ISDIR(st.st_mode)) {  // found directory
@@ -132,6 +123,10 @@ bool create_file_in_directory(const char* dir_name,
     return true;
 }
 
+// END: File and directory management functions
+
+// File operations for reports and configuration
+
 void update_threshold_in_config(char* distrct_name, int new_threshold) {
     char config_path[100];
     snprintf(config_path, sizeof(config_path), "%s/district.cfg", distrct_name);
@@ -145,6 +140,25 @@ void update_threshold_in_config(char* distrct_name, int new_threshold) {
     fprintf(config_file, "escalation_threshold=%d\n", new_threshold);
 
     fclose(config_file);
+}
+
+Report read_report_data_from_stdin() {
+    /* Returns a report without id and inspector data */
+    Report report;
+    printf("Enter report details:\n");
+    printf("Latitude (X): ");
+    scanf("%f", &report.latitude);
+    printf("Longitude (Y): ");
+    scanf("%f", &report.longitude);
+    printf("Issue Category (road/lightning/flooding/other): ");
+    scanf("%s", report.issue_category);
+    printf("Severity Level (1-3): ");
+    scanf("%d", &report.severity_level);
+    printf("Description: ");
+    scanf(" ");
+    fgets(report.description, sizeof(report.description), stdin);
+    report.timestamp = time(NULL);  // current time
+    return report;
 }
 
 void save_report_to_file(char* district, Report report) {
@@ -178,15 +192,6 @@ void save_report_to_file(char* district, Report report) {
     close(fd);
 }
 
-void handle_add_report(Usage usage) {
-    Report report = read_report_data_from_stdin();
-
-    report.id = 1;  // TODO: generate unique id based on last index in file;
-    strcpy(report.inspector_name, usage.inspector_name);
-
-    save_report_to_file(usage.district, report);
-}
-
 void list_reports_for_district(char* district) {
     char file_path[100];
     snprintf(file_path, sizeof(file_path), "%s/reports.dat", district);
@@ -212,9 +217,27 @@ void list_reports_for_district(char* district) {
     close(fd);
 }
 
+// END: File operations for reports and configuration
+
+
+// Logic handlers for different operations
+
+void handle_add_report(Usage usage) {
+    Report report = read_report_data_from_stdin();
+
+    report.id = 1;  // TODO: generate unique id based on last index in file;
+    strcpy(report.inspector_name, usage.inspector_name);
+
+    save_report_to_file(usage.district, report);
+}
+
 void handle_list_reports(Usage usage) {
     list_reports_for_district(usage.district);
 }
+
+// END: Logic handlers for different operations
+
+// Main action handler
 
 void handle_action(Usage usage) {
     // creating district and files if not exists
