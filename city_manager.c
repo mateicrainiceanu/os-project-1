@@ -42,7 +42,8 @@ Report read_report_data_from_stdin() {
     printf("Severity Level (1-3): ");
     scanf("%d", &report.severity_level);
     printf("Description: ");
-    scanf("%s", report.description);
+    scanf(" ");
+    fgets(report.description, sizeof(report.description), stdin);
     report.timestamp = time(NULL);  // current time
     return report;
 }
@@ -186,6 +187,35 @@ void handle_add_report(Usage usage) {
     save_report_to_file(usage.district, report);
 }
 
+void list_reports_for_district(char* district) {
+    char file_path[100];
+    snprintf(file_path, sizeof(file_path), "%s/reports.dat", district);
+
+    int fd = open(file_path, O_RDONLY);
+    if (fd == -1) {
+        printf("Failed to open file for reading: %s\n", file_path);
+        exit(-1);
+    }
+
+    Report report;
+    while (read(fd, &report, sizeof(Report)) == sizeof(Report)) {
+        printf("ID: %d\n", report.id);
+        printf("Inspector: %s\n", report.inspector_name);
+        printf("Location: (%f, %f)\n", report.latitude, report.longitude);
+        printf("Category: %s\n", report.issue_category);
+        printf("Severity: %d\n", report.severity_level);
+        printf("Description: %s\n", report.description);
+        printf("Timestamp: %s\n", ctime(&report.timestamp));
+        printf("-----------------------------\n");
+    }
+
+    close(fd);
+}
+
+void handle_list_reports(Usage usage) {
+    list_reports_for_district(usage.district);
+}
+
 void handle_action(Usage usage) {
     // creating district and files if not exists
     create_dir_if_not_exists(usage.district);
@@ -205,6 +235,7 @@ void handle_action(Usage usage) {
             handle_add_report(usage);
             break;
         case LIST:
+            handle_list_reports(usage);
             break;
         case REMOVE:
             break;
