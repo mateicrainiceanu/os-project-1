@@ -23,14 +23,6 @@ typedef struct {
     int escalation_threshold;
 } Configuration;
 
-typedef struct {
-    char action[50];
-    char district[50];
-    time_t timestamp;
-    char role[50];
-    char inspector_name[50];
-} OperationLogEntry;
-
 typedef enum { ADD, LIST, REMOVE, FILTER, VIEW, UPDATE_THRESHOLD } OperationType;
 
 typedef struct {
@@ -178,6 +170,25 @@ void print_report_summary(Report report) {
            "Severity: %d\n",
            report.id, report.inspector_name, report.latitude, report.longitude,
            report.issue_category, report.severity_level);
+}
+
+char* operation_to_string(OperationType op) {
+    switch (op) {
+        case ADD:
+            return "ADD";
+        case LIST:
+            return "LIST";
+        case REMOVE:
+            return "REMOVE";
+        case FILTER:
+            return "FILTER";
+        case VIEW:
+            return "VIEW";
+        case UPDATE_THRESHOLD:
+            return "UPDATE_THRESHOLD";
+        default:
+            return "UNKNOWN";
+    }
 }
 
 // END: Functions
@@ -346,6 +357,27 @@ void delete_report_by_id(char* district, int report_id) {
     close(fd);
 }
 
+void log_operation(Usage usage) {
+    char log_path[100];
+    snprintf(log_path, sizeof(log_path), "%s/logged_district", usage.district);
+
+    FILE* log_file = fopen(log_path, "a");
+    if (log_file == NULL) {
+        printf("Failed to open log file: %s\n", log_path);
+        return;
+    }  
+
+    time_t now = time(NULL);
+
+    fprintf(log_file, "Role: %s | Inspector: %s | Operation: %s | Timestamp: "
+                      "%s\n",
+            usage.role, 
+            usage.inspector_name, 
+            operation_to_string(usage.operation),
+            ctime(&now));
+    fclose(log_file);
+}
+
 // END: File operations for reports and configuration
 
 
@@ -395,6 +427,7 @@ void handle_action(Usage usage) {
     // END - creating district and files if not exists
 
     switch (usage.operation) {
+        log_operation(usage);
         case ADD:
             handle_add_report(usage);
             break;
@@ -416,6 +449,7 @@ void handle_action(Usage usage) {
             printf(
                 "Unimplemented operation in switch statement - handleAction\n");
             break;
+
     }
 }
 
