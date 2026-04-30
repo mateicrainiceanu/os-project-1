@@ -308,6 +308,44 @@ void view_report_by_id(char* district, int report_id) {
     close(fd);
 }
 
+void delete_report_by_id(char* district, int report_id) {
+    char file_path[100];
+    snprintf(file_path, sizeof(file_path), "%s/reports.dat", district);
+
+    int fd = open(file_path, O_RDWR);
+    if (fd == -1) {
+        printf("Failed to open file for reading/writing: %s\n", file_path);
+        exit(-1);
+    }
+
+    Report report;
+    bool found = false;
+
+    while (read(fd, &report, sizeof(Report)) == sizeof(Report)) {
+        if (report.id == report_id) {
+            found = true;
+            continue;
+        }
+
+        if (found) {
+            lseek(fd, -sizeof(Report) * 2, SEEK_CUR);
+            write(fd, &report, sizeof(Report));
+            lseek(fd, sizeof(Report), SEEK_CUR);
+        }
+    }
+
+    if (!found) {
+        printf("Report with ID %d not found in district %s.\n", report_id,
+               district);
+    } else {
+        printf("Report with ID %d deleted from district %s.\n", report_id,
+               district);
+        ftruncate(fd, lseek(fd, -sizeof(Report), SEEK_CUR));
+    }
+
+    close(fd);
+}
+
 // END: File operations for reports and configuration
 
 
@@ -332,6 +370,10 @@ void handle_view_report(Usage usage) {
 
 void handle_threshold_update(Usage usage) {
     update_threshold_in_config(usage.district, usage.value);
+}
+
+void handle_remove_report(Usage usage) {
+    delete_report_by_id(usage.district, usage.report_id);
 }
 
 // END: Logic handlers for different operations
@@ -360,6 +402,7 @@ void handle_action(Usage usage) {
             handle_list_reports(usage);
             break;
         case REMOVE:
+            handle_remove_report(usage);
             break;
         case FILTER:
             break;
