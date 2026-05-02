@@ -23,7 +23,7 @@ typedef struct {
     int escalation_threshold;
 } Configuration;
 
-typedef enum { ADD, LIST, REMOVE, FILTER, VIEW, UPDATE_THRESHOLD } OperationType;
+typedef enum { ADD, LIST, REMOVE, FILTER, VIEW, UPDATE_THRESHOLD, REMOVE_DISTRICT } OperationType;
 
 typedef struct {
     char role[50];
@@ -72,9 +72,11 @@ Usage parse_command_line_arguments(int argc, char* argv[]) {
     } else if (strcmp(argv[5], "--view") == 0) {
         usage.operation = VIEW;
         usage.report_id = atoi(argv[7]); 
-    } else if (strcmp(argv[5], "--update-threshold") == 0) {
+    } else if (strcmp(argv[5], "--update_threshold") == 0) {
         usage.operation = UPDATE_THRESHOLD;
         usage.value = atoi(argv[7]);
+    } else if (strcmp(argv[5], "--remove_district") == 0) {
+        usage.operation = REMOVE_DISTRICT;
     } else {
         printf("Invalid operation: %s\n", argv[5]);
         exit(EXIT_FAILURE);
@@ -106,6 +108,9 @@ void print_usage(Usage u) {
             break;
         case FILTER:
             printf("Filter Reports\n");
+            break;
+        case REMOVE_DISTRICT:
+            printf("Remove District\n");
             break;
     }
 }
@@ -437,6 +442,30 @@ void log_operation(Usage usage) {
     fclose(log_file);
 }
 
+void remove_district(char* district) {
+    char dir_path[100];
+    snprintf(dir_path, sizeof(dir_path), "%s", district);
+
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        printf("Failed to fork process for removing district.\n");
+        return;
+    } else if (pid == 0) {
+        execlp("rm", "rm", "-rf", dir_path, NULL);
+        printf("Failed to execute rm command.\n");
+        exit(-1);
+    }
+
+    int status;
+    wait (&status);
+    if (WEXITSTATUS(status) != 0) {
+        printf("Failed to remove district %s.\n", district);
+    } else {
+        printf("District %s removed successfully.\n", district);
+    }
+}
+
 // END: File operations for reports and configuration
 
 
@@ -460,11 +489,32 @@ void handle_view_report(Usage usage) {
 }
 
 void handle_threshold_update(Usage usage) {
+
+    if (strcmp(usage.role, "manager") != 0) {
+        printf("Only managers users can remove a district.\n");
+        return;
+    }
+
     update_threshold_in_config(usage.district, usage.value);
 }
 
 void handle_remove_report(Usage usage) {
+    if (strcmp(usage.role, "manager") != 0) {
+        printf("Only managers users can remove a district.\n");
+        return;
+    }
+
     delete_report_by_id(usage.district, usage.report_id);
+}
+
+void handle_remove_district(Usage usage) {
+
+    if (strcmp(usage.role, "manager") != 0) {
+        printf("Only managers users can remove a district.\n");
+        return;
+    }
+
+    remove_district(usage.district);
 }
 
 void handle_filter_reports(Usage usage) {
@@ -546,6 +596,9 @@ void handle_action(Usage usage) {
             break;
         case UPDATE_THRESHOLD:
             handle_threshold_update(usage);
+            break;
+        case REMOVE_DISTRICT:
+            handle_remove_district(usage);
             break;
         default:
             printf(
