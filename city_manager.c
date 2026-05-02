@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+#include <signal.h>
 
 // Data structures
 typedef struct {
@@ -468,6 +469,23 @@ void remove_district(char* district) {
 
 // END: File operations for reports and configuration
 
+// Signal sending
+
+void notify_monitor_of_new_report() {
+    FILE* mon_file = fopen(".monitor_pid", "r");
+    if (mon_file == NULL) {
+        printf("Monitor process is not running. Cannot send notification.\n");
+        return;
+    }
+
+    int monitor_pid;
+    fscanf(mon_file, "%d", &monitor_pid);
+    fclose(mon_file);
+
+    kill(monitor_pid, SIGUSR1);
+}
+
+// END - Signal sending
 
 // Logic handlers for different operations
 
@@ -478,6 +496,8 @@ void handle_add_report(Usage usage) {
     strcpy(report.inspector_name, usage.inspector_name);
 
     save_report_to_file(usage.district, report);
+
+    notify_monitor_of_new_report();
 }
 
 void handle_list_reports(Usage usage) {

@@ -22,11 +22,10 @@ void close_and_delete_mon_file() {
 }
 
 void handle_sigusr1(int sig) {
-    printf("SIGUSR1: new report generated. not implemented\n");
+    printf("SIGUSR1: new report generated.\n");
 }
 
 void handle_sigint(int sig) {
-    printf("SIGINT: expect shut down. not implemented\n");
     close_and_delete_mon_file();
     printf("Monitor process ended and .monitor_pid file deleted.\n");
 
