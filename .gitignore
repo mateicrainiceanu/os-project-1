@@ -1,6 +1,8 @@
 
 a.out
 city_manager
+monitor_reports
+.monitor_pid
 
 filter_requirement.txt
 
