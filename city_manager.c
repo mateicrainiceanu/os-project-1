@@ -32,6 +32,8 @@ typedef struct {
     OperationType operation;
     int report_id; // used for view and remove operations
     int value; // used for threshold updates operation
+    char conditions[10][100];
+    int condition_count;
 } Usage;
 
 // END: Data structures
@@ -40,6 +42,7 @@ typedef struct {
 
 Usage parse_command_line_arguments(int argc, char* argv[]) {
     Usage usage;
+    usage.condition_count = 0;
     if (argc < 5) {
         printf(
             "Usage: %s --role <role> --user <inspector_name> --[operation] "
@@ -61,6 +64,11 @@ Usage parse_command_line_arguments(int argc, char* argv[]) {
         usage.report_id = atoi(argv[7]);
     } else if (strcmp(argv[5], "--filter") == 0) {
         usage.operation = FILTER;
+        for (int i = 7; i < argc && usage.condition_count < 10; i++) {
+            strncpy(usage.conditions[usage.condition_count], argv[i], 99);
+            usage.conditions[usage.condition_count][99] = '\0';
+            usage.condition_count++;
+        }
     } else if (strcmp(argv[5], "--view") == 0) {
         usage.operation = VIEW;
         usage.report_id = atoi(argv[7]); 
@@ -189,6 +197,57 @@ char* operation_to_string(OperationType op) {
         default:
             return "UNKNOWN";
     }
+}
+
+// AI-generated: parse_condition splits "field:op:value" into its three parts.
+// Returns 1 on success, 0 if the string is malformed.
+int parse_condition(const char *input, char *field, char *op, char *value) {
+    const char *first_colon = strchr(input, ':');
+    if (!first_colon) return 0;
+
+    int field_len = first_colon - input;
+    strncpy(field, input, field_len);
+    field[field_len] = '\0';
+
+    const char *second_colon = strchr(first_colon + 1, ':');
+    if (!second_colon) return 0;
+
+    int op_len = second_colon - (first_colon + 1);
+    strncpy(op, first_colon + 1, op_len);
+    op[op_len] = '\0';
+
+    strcpy(value, second_colon + 1);
+    return 1;
+}
+
+// AI-generated: match_condition returns 1 if report r satisfies field op value.
+int match_condition(Report *r, const char *field, const char *op, const char *value) {
+    if (strcmp(field, "severity") == 0) {
+        int v = atoi(value);
+        if (strcmp(op, "==") == 0) return r->severity_level == v;
+        if (strcmp(op, "!=") == 0) return r->severity_level != v;
+        if (strcmp(op, "<")  == 0) return r->severity_level <  v;
+        if (strcmp(op, "<=") == 0) return r->severity_level <= v;
+        if (strcmp(op, ">")  == 0) return r->severity_level >  v;
+        if (strcmp(op, ">=") == 0) return r->severity_level >= v;
+    } else if (strcmp(field, "category") == 0) {
+        int cmp = strcmp(r->issue_category, value);
+        if (strcmp(op, "==") == 0) return cmp == 0;
+        if (strcmp(op, "!=") == 0) return cmp != 0;
+    } else if (strcmp(field, "inspector") == 0) {
+        int cmp = strcmp(r->inspector_name, value);
+        if (strcmp(op, "==") == 0) return cmp == 0;
+        if (strcmp(op, "!=") == 0) return cmp != 0;
+    } else if (strcmp(field, "timestamp") == 0) {
+        time_t ts = (time_t)atol(value);
+        if (strcmp(op, "==") == 0) return r->timestamp == ts;
+        if (strcmp(op, "!=") == 0) return r->timestamp != ts;
+        if (strcmp(op, "<")  == 0) return r->timestamp <  ts;
+        if (strcmp(op, "<=") == 0) return r->timestamp <= ts;
+        if (strcmp(op, ">")  == 0) return r->timestamp >  ts;
+        if (strcmp(op, ">=") == 0) return r->timestamp >= ts;
+    }
+    return 0;
 }
 
 // END: Functions
@@ -408,6 +467,48 @@ void handle_remove_report(Usage usage) {
     delete_report_by_id(usage.district, usage.report_id);
 }
 
+void handle_filter_reports(Usage usage) {
+    char file_path[100];
+    snprintf(file_path, sizeof(file_path), "%s/reports.dat", usage.district);
+
+    int fd = open(file_path, O_RDONLY);
+    if (fd == -1) {
+        printf("Failed to open file for reading: %s\n", file_path);
+        exit(-1);
+    }
+
+    char fields[10][50], ops[10][10], values[10][100];
+    for (int i = 0; i < usage.condition_count; i++) {
+        if (!parse_condition(usage.conditions[i], fields[i], ops[i], values[i])) {
+            printf("Invalid condition: %s\n", usage.conditions[i]);
+            close(fd);
+            exit(-1);
+        }
+    }
+
+    Report report;
+    int found = 0;
+    while (read(fd, &report, sizeof(Report)) == sizeof(Report)) {
+        int match = 1;
+        for (int i = 0; i < usage.condition_count; i++) {
+            if (!match_condition(&report, fields[i], ops[i], values[i])) {
+                match = 0;
+                break;
+            }
+        }
+        if (match) {
+            print_report_summary(report);
+            found++;
+        }
+    }
+
+    if (!found) {
+        printf("No reports match the given conditions.\n");
+    }
+
+    close(fd);
+}
+
 // END: Logic handlers for different operations
 
 // Main action handler
@@ -426,8 +527,8 @@ void handle_action(Usage usage) {
     create_file_in_directory(usage.district, "logged_district", 0644);
     // END - creating district and files if not exists
 
+    log_operation(usage);
     switch (usage.operation) {
-        log_operation(usage);
         case ADD:
             handle_add_report(usage);
             break;
@@ -438,6 +539,7 @@ void handle_action(Usage usage) {
             handle_remove_report(usage);
             break;
         case FILTER:
+            handle_filter_reports(usage);
             break;
         case VIEW:
             handle_view_report(usage);
