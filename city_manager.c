@@ -259,6 +259,32 @@ int match_condition(Report *r, const char *field, const char *op, const char *va
 // END: Functions
 
 // File operations for reports and configuration
+void create_district_reports_symlink(char* district) {
+    char target_path[100];
+    snprintf(target_path, sizeof(target_path), "%s/reports.dat", district);
+
+    char link_path[100];
+    snprintf(link_path, sizeof(link_path), "active-reports-%s", district);
+
+    if (symlink(target_path, link_path) == -1) {
+        printf("Failed to create symbolic link for reports.dat in %s\n",
+               district);
+    }
+
+    struct stat lst;
+    if (lstat(link_path, &lst) == 0) {
+        if (S_ISLNK(lst.st_mode)) {
+            // check if the file exists
+            struct stat st;
+            if (stat(link_path, &st) == -1) {
+                printf("Warning: dangling symlink detected at %s\n", link_path);
+            }
+        } else {
+            printf("Warning: %s expected symlink, but is not\n", link_path);
+            return;
+        }
+    }
+}
 
 void update_threshold_in_config(char* distrct_name, int new_threshold) {
     char config_path[100];
@@ -284,6 +310,22 @@ void update_threshold_in_config(char* distrct_name, int new_threshold) {
     fprintf(config_file, "escalation_threshold=%d\n", new_threshold);
 
     fclose(config_file);
+}
+
+void initialize_district_files(char* district) {
+    // creating district and files if not exists
+    create_dir_if_not_exists(district);
+    create_file_in_directory(district, "reports.dat", 0664);
+
+    bool created = create_file_in_directory(district, "district.cfg", 0640);
+    if (created) {
+        update_threshold_in_config(district, 2);
+        create_district_reports_symlink(district);
+    }
+
+    create_file_in_directory(district, "logged_district", 0644);
+
+    // END - creating district and files if not exists
 }
 
 Report read_report_data_from_stdin() {
@@ -447,12 +489,22 @@ void remove_district(char* district) {
     char dir_path[100];
     snprintf(dir_path, sizeof(dir_path), "%s", district);
 
+    char link_path[100];
+    snprintf(link_path, sizeof(link_path), "active-reports-%s", district);
+
     pid_t pid = fork();
 
     if (pid < 0) {
         printf("Failed to fork process for removing district.\n");
         return;
     } else if (pid == 0) {
+        if(unlink(link_path) == -1) {
+            printf("Failed to remove symlink: %s\n", link_path);
+            exit(-1);
+        } else {
+            printf("Symlink %s removed successfully.\n", link_path);
+        }
+
         execlp("rm", "rm", "-rf", dir_path, NULL);
         printf("Failed to execute rm command.\n");
         exit(-1);
@@ -584,18 +636,7 @@ void handle_filter_reports(Usage usage) {
 // Main action handler
 
 void handle_action(Usage usage) {
-    // creating district and files if not exists
-    create_dir_if_not_exists(usage.district);
-    create_file_in_directory(usage.district, "reports.dat", 0664);
-
-    bool created =
-        create_file_in_directory(usage.district, "district.cfg", 0640);
-    if (created) {
-        update_threshold_in_config(usage.district, 2);
-    }
-
-    create_file_in_directory(usage.district, "logged_district", 0644);
-    // END - creating district and files if not exists
+   initialize_district_files(usage.district);
 
     log_operation(usage);
     switch (usage.operation) {
