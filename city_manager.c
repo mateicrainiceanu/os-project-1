@@ -271,7 +271,7 @@ void create_district_reports_symlink(char* district) {
                district);
     }
 
-    struct stat lst;
+   struct stat lst;
     if (lstat(link_path, &lst) == 0) {
         if (S_ISLNK(lst.st_mode)) {
             // check if the file exists
