@@ -8,6 +8,7 @@ FILE* init_mon_file() {
     FILE* mon_file = fopen(".monitor_pid", "w");
     if (mon_file == NULL) {
         printf("Failed to open .monitor_pid file.\n");
+        fflush(stdout);
         exit(-1);
     }
     fprintf(mon_file, "%d", getpid());
@@ -23,11 +24,13 @@ void close_and_delete_mon_file() {
 
 void handle_sigusr1(int sig) {
     printf("SIGUSR1: new report generated.\n");
+    fflush(stdout);
 }
 
 void handle_sigint(int sig) {
     close_and_delete_mon_file();
     printf("Monitor process ended and .monitor_pid file deleted.\n");
+    fflush(stdout);
 
     exit(0);
 }
@@ -35,7 +38,8 @@ void handle_sigint(int sig) {
 void start_monitor() {
     init_mon_file();
     printf("Monitor process started and .monitor_pid file created.\n");
-
+    fflush(stdout);
+    
     // register signal handlers
     struct sigaction sa_usr1, sa_int;
 
