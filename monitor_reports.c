@@ -3,19 +3,39 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/fcntl.h>
 
-FILE* init_mon_file() {
-    FILE* mon_file = fopen(".monitor_pid", "w");
-    if (mon_file == NULL) {
-        printf("Failed to open .monitor_pid file.\n");
+void init_mon_file() {
+    int f = open(".monitor_pid", O_RDONLY);
+    if (f != -1) {
+        char buf[32];
+        int sz = read(f, buf, 31);
+        close(f);
+
+        buf[sz] = '\0';
+
+        int running_pid = atoi(buf);
+
+        printf("Another monitor is already running with pid: %d\n", running_pid);
+        fflush(stdout);
+
+        exit(-1);
+    }
+
+    int mon_file = open(".monitor_pid", O_CREAT | O_WRONLY, 0644);
+
+    if (mon_file == -1) {
+        printf("Failed to create or open .monitor_pid file.\n");
         fflush(stdout);
         exit(-1);
     }
-    fprintf(mon_file, "%d", getpid());
-    fflush(mon_file);
-    fclose(mon_file);
+    
+    // write pid to file
+    char buf[32];
+    int len = snprintf(buf, 32, "%d", getpid());
+    write(mon_file, buf, len);
 
-    return mon_file;
+    close(mon_file);
 }
 
 void close_and_delete_mon_file() {
@@ -40,16 +60,15 @@ void start_monitor() {
     printf("Monitor process started and .monitor_pid file created.\n");
     fflush(stdout);
     
-    // register signal handlers
     struct sigaction sa_usr1, sa_int;
 
-    // SIGUSR1 for new report notification
+    // SIGUSR1
     sa_usr1.sa_handler = handle_sigusr1;
     sigemptyset(&sa_usr1.sa_mask);
     sa_usr1.sa_flags = 0;
     sigaction(SIGUSR1, &sa_usr1, NULL);
 
-    // SIGINT for graceful shutdown
+    // SIGINT
     sa_int.sa_handler = handle_sigint;
     sigemptyset(&sa_int.sa_mask);
     sa_int.sa_flags = 0;
@@ -63,7 +82,7 @@ void start_monitor() {
 
     // main loop to keep the monitor process running
     while (1) {
-        sigsuspend(&wait_mask);
+        sigsuspend(&wait_mask); // wait until either one of the signals is recieved
     }
 }
 

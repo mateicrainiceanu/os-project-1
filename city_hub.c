@@ -7,33 +7,21 @@
 
 int hub_mon_pipe[2];
 
-int check_if_mon_running() {
-    int f = open(".monitor_pid", O_RDONLY);
-    if (f == -1) {
-        return 0; // Monitor is not running
-    }
-    close(f);
-    return 1; // Monitor is running
-}
-
 void hub_mon() {
     // child
 
-    close(hub_mon_pipe[0]);  // Close the read end of the pipe in the child
-    dup2(hub_mon_pipe[1], 1); // Redirect stdout to the write end of the pipe
-    close(hub_mon_pipe[1]); // Close the write end of the pipe in the child
-
-    if (check_if_mon_running()) {
-        printf("Monitor is already running.\n");
-        return;
-    } else {
-        printf("Monitor is not running. Starting monitor...\n");
-        // start the monitor
-    }
-
+    close(hub_mon_pipe[0]);  // close the read end of the pipe in the child
+    dup2(hub_mon_pipe[1], 1); // redirect stdout to the write end of the pipe
+    close(hub_mon_pipe[1]); // close the write end of the pipe in the child
 
     // start the monitor
-    execlp("./monitor_reports", "./monitor_reports", NULL);
+    pid_t mon_pid = fork();
+    if (mon_pid == 0) {
+        // grandchild — becomes monitor_reports
+        execlp("./monitor_reports", "monitor_reports", NULL);
+        perror("execlp");
+        exit(1);
+    }
 }
 
 void parent() {
@@ -76,6 +64,7 @@ void start_hub_mon() {
 int main() {
 
     start_hub_mon();
+
 
     return 0;
 }
