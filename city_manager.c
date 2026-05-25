@@ -142,6 +142,7 @@ bool create_file_in_directory(const char* dir_name,
     }
 
     close(fd);
+    chmod(file_path, permissions);
     return true;
 }
 
@@ -355,6 +356,17 @@ void save_report_to_file(char* district, Report report) {
     char file_path[100];
     snprintf(file_path, sizeof(file_path), "%s/reports.dat", district);
 
+    // Check file permissions before writing
+    struct stat st;
+    if (stat(file_path, &st) == -1) {
+        printf("Failed to get file permissions: %s\n", file_path);
+        return;
+    }
+    if ((st.st_mode & 0777) != 0664) {
+        printf("Warning: Report file permissions are not 0664\n");
+        return;
+    }
+
     int fd = open(file_path, O_RDWR, 0644);
     if (fd == -1) {
         printf("Failed to open file for writing: %s\n", file_path);
@@ -386,6 +398,17 @@ void list_reports_for_district(char* district) {
     char file_path[100];
     snprintf(file_path, sizeof(file_path), "%s/reports.dat", district);
 
+    // Check file permissions before writing
+    struct stat st;
+    if (stat(file_path, &st) == -1) {
+        printf("Failed to get file permissions: %s\n", file_path);
+        return;
+    }
+    if ((st.st_mode & 0777) != 0664) {
+        printf("Warning: Report file permissions are not 0664\n");
+        return;
+    }
+
     int fd = open(file_path, O_RDONLY);
     if (fd == -1) {
         printf("Failed to open file for reading: %s\n", file_path);
@@ -405,6 +428,17 @@ void list_reports_for_district(char* district) {
 void view_report_by_id(char* district, int report_id) {
     char file_path[100];
     snprintf(file_path, sizeof(file_path), "%s/reports.dat", district);
+
+    // Check file permissions before writing
+    struct stat st;
+    if (stat(file_path, &st) == -1) {
+        printf("Failed to get file permissions: %s\n", file_path);
+        return;
+    }
+    if ((st.st_mode & 0777) != 0664) {
+        printf("Warning: Report file permissions are not 0664\n");
+        return;
+    }
 
     int fd = open(file_path, O_RDONLY);
     if (fd == -1) {
@@ -433,6 +467,17 @@ void view_report_by_id(char* district, int report_id) {
 void delete_report_by_id(char* district, int report_id) {
     char file_path[100];
     snprintf(file_path, sizeof(file_path), "%s/reports.dat", district);
+
+    // Check file permissions before writing
+    struct stat st;
+    if (stat(file_path, &st) == -1) {
+        printf("Failed to get file permissions: %s\n", file_path);
+        return;
+    }
+    if ((st.st_mode & 0777) != 0664) {
+        printf("Warning: Report file permissions are not 0664\n");
+        return;
+    }
 
     int fd = open(file_path, O_RDWR);
     if (fd == -1) {
@@ -471,6 +516,17 @@ void delete_report_by_id(char* district, int report_id) {
 void log_operation(Usage usage) {
     char log_path[100];
     snprintf(log_path, sizeof(log_path), "%s/logged_district", usage.district);
+
+    // Check file permissions before writing
+    struct stat st;
+    if (stat(log_path, &st) == -1) {
+        printf("Failed to get file permissions: %s\n", log_path);
+        return;
+    }
+    if ((st.st_mode & 0777) != 0644) {
+        printf("Warning: Log file permissions are not 0644\n");
+        return;
+    }
 
     int fd = open(log_path, O_WRONLY | O_APPEND);
     if (fd == -1) {
@@ -609,6 +665,17 @@ void handle_remove_district(Usage usage) {
 void handle_filter_reports(Usage usage) {
     char file_path[100];
     snprintf(file_path, sizeof(file_path), "%s/reports.dat", usage.district);
+
+    // Check file permissions before writing
+    struct stat st;
+    if (stat(file_path, &st) == -1) {
+        printf("Failed to get file permissions: %s\n", file_path);
+        return;
+    }
+    if ((st.st_mode & 0777) != 0664) {
+        printf("Warning: Report file permissions are not 0664\n");
+        return;
+    }
 
     int fd = open(file_path, O_RDONLY);
     if (fd == -1) {
