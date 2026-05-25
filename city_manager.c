@@ -286,30 +286,34 @@ void create_district_reports_symlink(char* district) {
     }
 }
 
-void update_threshold_in_config(char* distrct_name, int new_threshold) {
+void update_threshold_in_config(char* district_name, int new_threshold) {
     char config_path[100];
-    snprintf(config_path, sizeof(config_path), "%s/district.cfg", distrct_name);
-
-    FILE* config_file = fopen(config_path, "w");
-    if (config_file == NULL) {
-        printf("Failed to open config file");
-        return;
-    }
+    snprintf(config_path, sizeof(config_path), "%s/district.cfg",
+             district_name);
 
     struct stat st;
     if (stat(config_path, &st) == -1) {
         printf("Failed to get file permissions: %s\n", config_path);
-    } else {
-       // verify that the permissions are 0640
-        if ((st.st_mode & 0777) != 0640) {
-            printf("Warning: Config file permissions are not 0640\n");
-            return;
-        } 
+        return;
     }
 
-    fprintf(config_file, "escalation_threshold=%d\n", new_threshold);
+    if ((st.st_mode & 0777) != 0640) {
+        printf("Warning: Config file permissions are not 0640\n");
+        return;
+    }
 
-    fclose(config_file);
+    int fd = open(config_path, O_WRONLY | O_TRUNC);
+    if (fd == -1) {
+        printf("Failed to open config file: %s\n", config_path);
+        return;
+    }
+
+    char buf[64];
+    int len =
+        snprintf(buf, sizeof(buf), "escalation_threshold=%d\n", new_threshold);
+    write(fd, buf, len);
+
+    close(fd);
 }
 
 void initialize_district_files(char* district) {
@@ -468,21 +472,26 @@ void log_operation(Usage usage) {
     char log_path[100];
     snprintf(log_path, sizeof(log_path), "%s/logged_district", usage.district);
 
-    FILE* log_file = fopen(log_path, "a");
-    if (log_file == NULL) {
+    int fd = open(log_path, O_WRONLY | O_APPEND);
+    if (fd == -1) {
         printf("Failed to open log file: %s\n", log_path);
         return;
-    }  
+    }
 
     time_t now = time(NULL);
+    char timestamp[64];
+    strncpy(timestamp, ctime(&now), sizeof(timestamp));
+    timestamp[strcspn(timestamp, "\n")] = '\0';  // ctime automatically adds a newline
 
-    fprintf(log_file, "Role: %s | Inspector: %s | Operation: %s | Timestamp: "
-                      "%s\n",
-            usage.role, 
-            usage.inspector_name, 
-            operation_to_string(usage.operation),
-            ctime(&now));
-    fclose(log_file);
+    char buf[256];
+    int len =
+        snprintf(buf, sizeof(buf),
+                 "Role: %s | Inspector: %s | Operation: %s | Timestamp: %s\n",
+                 usage.role, usage.inspector_name,
+                 operation_to_string(usage.operation), timestamp);
+
+    write(fd, buf, len);
+    close(fd);
 }
 
 void remove_district(char* district) {
@@ -524,15 +533,23 @@ void remove_district(char* district) {
 // Signal sending
 
 void notify_monitor_of_new_report() {
-    FILE* mon_file = fopen(".monitor_pid", "r");
-    if (mon_file == NULL) {
+    int fd = open(".monitor_pid", O_RDONLY);
+    if (fd == -1) {
         printf("Monitor process is not running. Cannot send notification.\n");
         return;
     }
 
-    int monitor_pid;
-    fscanf(mon_file, "%d", &monitor_pid);
-    fclose(mon_file);
+    char buf[32];
+    int n = read(fd, buf, sizeof(buf) - 1);
+    close(fd);
+
+    if (n <= 0) {
+        printf("Failed to read monitor PID.\n");
+        return;
+    }
+
+    buf[n] = '\0';
+    int monitor_pid = atoi(buf);
 
     kill(monitor_pid, SIGUSR1);
 }

@@ -127,7 +127,7 @@ int main() {
         } else if (strncmp("calculate_scores", buf, strlen("calculate_scores")) ==
                  0) {
 
-            char *args = buf + strlen("calculate_scores") + 1; // skip the command and the space
+            char *args = buf + strlen("calculate_scores") + 1; // skip the command "calculate_scores" and the space
             handle_calculate_scores(args);
         } else {
             printf("Unknown command %s\n", buf);
