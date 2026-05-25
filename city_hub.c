@@ -57,6 +57,63 @@ void start_hub_mon() {
     parent();
 }
 
+int create_scorer_process(const char* district) { // returns the read and of the pipe
+    int fd[2];
+
+    pipe(fd);
+
+    int pid = fork();
+    if (pid < 0) {
+        printf("Error foking");
+        exit(1);
+    }
+
+    if (pid == 0) {
+        // child
+
+        close(fd[0]);       // close the read pipe
+        dup2(fd[1], 1);     // stdout to the write pipe
+        close(fd[1]);       // close the write end
+
+        execlp("./scorer", "./scorer", district, NULL);
+    }
+
+    //parent
+    close(fd[1]);
+    return fd[0];
+}
+
+void handle_district_scorer(char* district) {
+    int fd = create_scorer_process(district);
+
+    if (fd == -1) {
+        printf("Failed to create scorer process for district %s.\n", district);
+        return;
+    }
+
+    char buf[512];
+    int n = 0;
+    while ((n = read(fd, buf, sizeof(buf))) > 0) {
+        buf[n] = '\0';
+        printf("%s", buf);
+        fflush(stdout);
+    }
+    
+    close(fd);
+}
+
+void handle_calculate_scores(char* districts) {
+    printf("=== WORKLOAD REPORT ===\n");
+    char* token = strtok(districts, " ");
+    while (token != NULL) {
+        handle_district_scorer(token);
+        token = strtok(NULL, " ");
+    }
+    printf("=== END WORKLOAD REPORT ===\n");
+}
+
+
+
 int main() {
     char buf[512];
 
@@ -69,7 +126,9 @@ int main() {
             start_hub_mon();
         } else if (strncmp("calculate_scores", buf, strlen("calculate_scores")) ==
                  0) {
-            printf("calculating scores\n");
+
+            char *args = buf + strlen("calculate_scores") + 1; // skip the command and the space
+            handle_calculate_scores(args);
         } else {
             printf("Unknown command %s\n", buf);
         }
