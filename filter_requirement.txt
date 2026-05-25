@@ -1,0 +1,15 @@
+The filter Command and AI-Assisted Condition Matching
+The filter command accepts one (or optionally more) condition(s). If more conditions are supported, they are given as distinct arguments separated by spaces. The command prints all reports that satisfy all of them (conditions are implicitly joined by AND). A condition is a single string of the form:
+field:operator:value
+Supported fields: severity, category, inspector, timestamp. Supported operators: ==, !=, <, <=, >, >=.
+What you are expected to do with AI assistance:
+Use an AI assistant to help you implement two functions:
+1. Describe your record structure and ask the AI to generate a function
+        int parse_condition(const char *input, char *field, char *op, char *value);
+      which splits a field:operator:value string into its three parts.
+2. Describe the fields and their types and ask the AI to generate a function
+        int match_condition(Report *r, const char *field, const char *op, const char *value);
+      which returns 1 if the record satisfies the condition and 0 otherwise.
+3. Review both functions line by line. You must be able to explain them fully at your presentation.
+4. Write the filter logic yourself: open reports.dat, read records one by one with read(), parse each command-line condition with parse_condition(), test each record against every condition with match_condition(), and print records where all conditions return 1.
+5. Describe in an ai_usage.md file the tool used, the prompts you gave, what was generated, what you changed and why, and what you learned. This file is a required deliverable and will be discussed at your presentation

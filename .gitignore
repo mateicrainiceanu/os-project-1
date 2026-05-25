@@ -2,9 +2,11 @@
 a.out
 city_manager
 monitor_reports
-.monitor_pid
+scorer
+city_manager
+city_hub
 
-filter_requirement.txt
+.monitor_pid
 
 downtown/
 downtownx/
