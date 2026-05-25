@@ -1,3 +1,8 @@
+# AI TOOLS USED
+- Claude Code - for implementing filtering and creation of test
+- Claude - for quick information and code snippets to implement
+- Copilot Inline Suggestions
+
 # Original Prompt - for implementing the ai allowed feature
 ## Prompt
 in filter_requirement.txt, you have the requirement for implementing the filter functionality. this function is allowed to be implemented with ai. also document in agents.md the communication with the ai. respect and thest that function. add more reports to the test_district and test them.
@@ -204,11 +209,174 @@ The filter handler `handle_filter_reports` was written without AI assistance:
 - For each report, calls `match_condition` against every parsed condition; prints with `print_report_summary` only if all return 1.
 - Prints a "no results" message if no report matched.
 
+# Testing suite
+### Prompts:
+Create me a bash script for testing the city_manager.c executable
+
+### Output
+test_city_manager.sh
+
+# City Manager
+
+## print_file permissions
+
+### Propmt
+Create me a function to print file permissions
+
+### Response
+```c
+void print_file_permissions(char *file_path) {
+    struct stat st;
+    if (lstat(file_path, &st) == -1) {
+        printf("Failed to get file permissions: %s\n", file_path);
+        return;
+    }
+    
+    printf("Permissions for %s: ", file_path);
+    printf((st.st_mode & S_IRUSR) ? "r" : "-");
+    printf((st.st_mode & S_IWUSR) ? "w" : "-");
+    printf((st.st_mode & S_IXUSR) ? "x" : "-");
+    printf((st.st_mode & S_IRGRP) ? "r" : "-");
+    printf((st.st_mode & S_IWGRP) ? "w" : "-");
+    printf((st.st_mode & S_IXGRP) ? "x" : "-");
+    printf((st.st_mode & S_IROTH) ? "r" : "-");
+    printf((st.st_mode & S_IWOTH) ? "w" : "-");
+    printf((st.st_mode & S_IXOTH) ? "x" : "-");
+    printf("\n");
+}
+```
+
+## create_district_reports_symlink
+### Propmt
+how do i create a symlink in C
+also add checking if the symlink exists or is dangling
+
+### Response
+Using the symlink call
+```c
+char link_name[100];
+char target[100];
+
+snprintf(link_name, sizeof(link_name), "active_reports-%s", district);
+snprintf(target, sizeof(target), "%s/reports.dat", district);
+
+if (symlink(target, link_name) == -1) {
+    perror("symlink");
+}
+```
+
+```c
+struct stat st;
+
+// check if symlink already exists
+if (lstat(link_name, &st) == 0) {
+    if (S_ISLNK(st.st_mode)) {
+        // symlink exists — check if it's dangling
+        if (stat(link_name, &st) == -1) {
+            printf("Warning: dangling symlink detected at %s\n", link_name);
+            unlink(link_name); // remove it and recreate below
+        } else {
+            printf("Symlink %s already exists.\n", link_name);
+            return; // valid symlink already in place
+        }
+    }
+}
+```
+### Implementation
+
+```c
+void create_district_reports_symlink(char* district) {
+    char target_path[100];
+    snprintf(target_path, sizeof(target_path), "%s/reports.dat", district);
+
+    char link_path[100];
+    snprintf(link_path, sizeof(link_path), "active-reports-%s", district);
+
+    if (symlink(target_path, link_path) == -1) {
+        printf("Failed to create symbolic link for reports.dat in %s\n",
+               district);
+    }
+
+   struct stat lst;
+    if (lstat(link_path, &lst) == 0) {
+        if (S_ISLNK(lst.st_mode)) {
+            // check if the file exists
+            struct stat st;
+            if (stat(link_path, &st) == -1) {
+                printf("Warning: dangling symlink detected at %s\n", link_path);
+            }
+        } else {
+            printf("Warning: %s expected symlink, but is not\n", link_path);
+            return;
+        }
+    }
+}
+```
+
+# Monitor Reports
+
+## Signal handling
+### Propmt
+how do i configure a signal handler in c
+how do i wait for multiple signals
+### Response
+```c
+struct sigaction sa;
+sa.sa_handler = your_handler_function;
+sigemptyset(&sa.sa_mask);
+sa.sa_flags = 0;
+sigaction(SIGINT, &sa, NULL); // replace with you signal
+```
+
+```c
+sigset_t wait_mask;
+sigfillset(&wait_mask);          // block all signals...
+sigdelset(&wait_mask, SIGUSR1);  // ...except SIGUSR1
+sigdelset(&wait_mask, SIGUSR2);  // ...except SIGUSR2
+sigdelset(&wait_mask, SIGINT);   // ...and SIGINT
+
+while (1) {
+    sigsuspend(&wait_mask);      // sleep until one of them arrives
+}
+```
+### Implementation
+
+```c
+
+void start_monitor() {
+    init_mon_file();
+    printf("Monitor process started and .monitor_pid file created.\n");
+    fflush(stdout);
+    
+    struct sigaction sa_usr1, sa_int;
+
+    // SIGUSR1
+    sa_usr1.sa_handler = handle_sigusr1;
+    sigemptyset(&sa_usr1.sa_mask);
+    sa_usr1.sa_flags = 0;
+    sigaction(SIGUSR1, &sa_usr1, NULL);
+
+    // SIGINT
+    sa_int.sa_handler = handle_sigint;
+    sigemptyset(&sa_int.sa_mask);
+    sa_int.sa_flags = 0;
+    sigaction(SIGINT, &sa_int, NULL);
+
+    // configure signal waiting;
+    sigset_t wait_mask;
+    sigfillset(&wait_mask);
+    sigdelset(&wait_mask, SIGUSR1);
+    sigdelset(&wait_mask, SIGINT);
+
+    // main loop to keep the monitor process running
+    while (1) {
+        sigsuspend(&wait_mask); // wait until either one of the signals is recieved
+    }
+}
+```
 
 # CityHub
-
 ## Command line interface
-
 ### Prompt
 The first command does not do anything, commands are only processed from the second command downwards
 
@@ -257,3 +425,9 @@ while (1) {
 
 strcspn(buf, "\n") finds the position of the newline that fgets leaves in the buffer and replaces it with \0 — without this, strcmp("start_monitor", buf) would be comparing against "start_monitor\n" and never match.
 
+<!-- 
+## function_name
+### Propmt
+### Response
+### Implementation
+ -->
